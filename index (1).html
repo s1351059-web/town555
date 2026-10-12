@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文字格子地下城</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10151d;
+      --panel: #1a2330;
+      --border: #344357;
+      --text: #e7edf5;
+      --muted: #a8b6c8;
+      --accent: #76e0b0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; padding: 20px 12px 32px;
+      background: var(--bg); color: var(--text);
+      font-family: Consolas, "Courier New", monospace;
+    }
+    main { width: 100%; max-width: 720px; margin: 0 auto; }
+    h1 {
+      margin: 0 0 8px; text-align: center;
+      font-size: clamp(23px, 5vw, 34px); color: var(--accent);
+    }
+    .subtitle {
+      text-align: center; color: var(--muted); margin: 0 0 22px;
+      font-family: system-ui, sans-serif; font-size: 14px;
+    }
+    .panel {
+      padding: 16px; margin-bottom: 14px; border: 1px solid var(--border);
+      border-radius: 12px; background: var(--panel);
+    }
+    .stats {
+      display: flex; flex-wrap: wrap; justify-content: space-around;
+      gap: 12px; font-family: system-ui, sans-serif;
+    }
+    .stat { text-align: center; min-width: 80px; }
+    .stat strong { display: block; margin-top: 5px; font-size: 20px; }
+    #hp { color: #ff8d96; }
+    #turn { color: #8fc8ff; }
+    #map {
+      display: grid; grid-template-columns: repeat(13, minmax(0, 1fr));
+      gap: 2px; width: 100%; max-width: 520px; margin: 0 auto;
+      padding: 8px; background: #0b1017; border: 1px solid var(--border);
+      border-radius: 8px; user-select: none;
+    }
+    .tile {
+      display: flex; align-items: center; justify-content: center;
+      aspect-ratio: 1; min-width: 0; border-radius: 3px;
+      font-size: clamp(12px, 3.1vw, 23px); font-weight: bold; line-height: 1;
+    }
+    .floor { background: #202c3a; color: #75859a; }
+    .wall { background: #59677a; color: #dbe5f0; }
+    .player {
+      background: linear-gradient(135deg, #ff4d6d, #ffbe0b, #80ed99, #00bbf9, #9b5de5, #f15bb5);
+      background-size: 300% 300%;
+      color: #ffffff;
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.9);
+      animation: rainbow-player 3s ease-in-out infinite, rainbow-glow 2s linear infinite;
+    }
+    @keyframes rainbow-player {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes rainbow-glow {
+      0%, 100% { box-shadow: inset 0 0 0 2px #ff4d6d, 0 0 8px #ff4d6d; }
+      20% { box-shadow: inset 0 0 0 2px #ffbe0b, 0 0 8px #ffbe0b; }
+      40% { box-shadow: inset 0 0 0 2px #80ed99, 0 0 8px #80ed99; }
+      60% { box-shadow: inset 0 0 0 2px #00bbf9, 0 0 8px #00bbf9; }
+      80% { box-shadow: inset 0 0 0 2px #9b5de5, 0 0 8px #9b5de5; }
+    }
+    .enemy { background: #572832; color: #ff929b; box-shadow: inset 0 0 0 2px #c64d60; }
+    .exit { background: #57461b; color: #ffe38b; box-shadow: inset 0 0 0 2px #e9bd48; }
+    .spring {
+      background: #123f57;
+      color: #75e6ff;
+      box-shadow: inset 0 0 0 2px #43c9ef, 0 0 8px rgba(67, 201, 239, 0.45);
+      animation: spring-glow 1.8s ease-in-out infinite alternate;
+    }
+    @keyframes spring-glow {
+      from { box-shadow: inset 0 0 0 2px #43c9ef, 0 0 4px rgba(67, 201, 239, 0.25); }
+      to { box-shadow: inset 0 0 0 2px #b0f4ff, 0 0 12px rgba(67, 201, 239, 0.8); }
+    }
+    .legend {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 18px;
+      margin-top: 14px; color: var(--muted); font-size: 13px;
+      font-family: system-ui, sans-serif;
+    }
+    .legend b { font-family: Consolas, monospace; font-size: 16px; }
+    .green { color: #8bffcb; }
+    .red { color: #ff929b; }
+    .yellow { color: #ffe38b; }
+    #message {
+      min-height: 48px; display: flex; align-items: center;
+      justify-content: center; text-align: center;
+      font-family: system-ui, sans-serif; line-height: 1.6;
+    }
+    .controls {
+      display: grid; grid-template-columns: repeat(3, 64px);
+      justify-content: center; gap: 7px; margin-top: 12px;
+    }
+    .controls button, .action-button {
+      border: 1px solid #52677f; border-radius: 9px;
+      background: #2a394c; color: white; font-size: 23px;
+      cursor: pointer; touch-action: manipulation;
+    }
+    .controls button { width: 64px; height: 58px; }
+    .controls button:active, .action-button:active {
+      background: #42614f; transform: scale(0.97);
+    }
+    .controls .empty { visibility: hidden; }
+    .actions { display: flex; justify-content: center; margin-top: 18px; }
+    .action-button { padding: 11px 20px; font-size: 15px; }
+    .help {
+      font-family: system-ui, sans-serif; font-size: 14px;
+      line-height: 1.9; color: var(--muted);
+    }
+    .help strong { color: var(--text); }
+    button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    @media (max-width: 380px) {
+      body { padding-left: 6px; padding-right: 6px; }
+      .panel { padding: 10px; }
+      #map { gap: 1px; padding: 4px; }
+      .controls { grid-template-columns: repeat(3, 58px); }
+      .controls button { width: 58px; height: 54px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>⚔ 文字格子地下城</h1>
+    <p class="subtitle">TURN-BASED DUNGEON ADVENTURE</p>
+
+    <section class="panel stats" aria-label="遊戲狀態">
+      <div class="stat">生命值<strong id="hp">♥ ♥ ♥</strong></div>
+      <div class="stat">回合數<strong id="turn">0</strong></div>
+      <div class="stat">敵人數量<strong id="enemyCount">3</strong></div>
+      <div class="stat">地下城樓層<strong id="floorNumber">1 / 3</strong></div>
+    </section>
+
+    <section class="panel">
+      <div id="map" role="img" aria-label="地下城文字格子地圖"></div>
+      <div class="legend">
+        <span><b class="green">@</b> 玩家</span>
+        <span><b>#</b> 牆壁</span>
+        <span><b class="red">E</b> 敵人</span>
+        <span><b class="yellow">X</b> 出口／樓梯</span>
+        <span><b style="color:#75e6ff">H</b> 治療泉水</span>
+        <span><b>·</b> 地板</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div id="message" role="status" aria-live="polite">冒險開始！移動到出口 X。</div>
+      <div class="controls" aria-label="觸控方向控制">
+        <button class="empty" tabindex="-1" aria-hidden="true" type="button"> </button>
+        <button type="button" data-dir="up" aria-label="向上移動">↑</button>
+        <button class="empty" tabindex="-1" aria-hidden="true" type="button"> </button>
+        <button type="button" data-dir="left" aria-label="向左移動">←</button>
+        <button type="button" data-dir="down" aria-label="向下移動">↓</button>
+        <button type="button" data-dir="right" aria-label="向右移動">→</button>
+      </div>
+      <div class="actions">
+        <button type="button" class="action-button" id="restart">↻ 重新開始</button>
+      </div>
+    </section>
+
+    <section class="panel help">
+      <strong>遊戲規則</strong><br>
+      1. 使用 W、A、S、D 或鍵盤方向鍵移動。<br>
+      2. 每次成功移動後，敵人會行動一次。<br>
+      3. 牆壁不能穿越，敵人接觸玩家會造成傷害。<br>
+      4. 生命值歸零則遊戲失敗。<br>
+      5. 抵達 X 可前往下一層，通過第 3 層出口即可獲勝。<br>
+      6. 踩到藍色治療泉水 H 可恢復生命值，每層最多使用一次。<br>
+      7. 越深的樓層敵人越多、移動越積極。<br>
+      8. 也可以使用上方的觸控方向按鈕操作。
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+
+    const WIDTH = 13;
+    const HEIGHT = 11;
+    const MAX_HP = 3;
+
+    // 每一層都是 13 x 11；# 牆壁、. 地板、H 治療泉水。
+    const FLOORS = [
+      {
+        map: [
+          "#############",
+          "#.....#.....#",
+          "#.##..#..##.#",
+          "#...........#",
+          "#.###.###.#.#",
+          "#...#.....#.#",
+          "###.#.###.#.#",
+          "#...#...#...#",
+          "#.#####.#.#.#",
+          "#.........#.#",
+          "#############"
+        ],
+        player: { x: 1, y: 1 },
+        exit: { x: 11, y: 9 },
+        spring: { x: 3, y: 3 },
+        enemies: [
+          { x: 9, y: 3 },
+          { x: 3, y: 7 },
+          { x: 9, y: 9 }
+        ]
+      },
+      {
+        map: [
+          "#############",
+          "#.....#.....#",
+          "#.###.#.###.#",
+          "#...#...#...#",
+          "###.###.#.#.#",
+          "#...#...#...#",
+          "#.#.#.###.###",
+          "#.#.........#",
+          "#.#####.###.#",
+          "#...........#",
+          "#############"
+        ],
+        player: { x: 1, y: 1 },
+        exit: { x: 11, y: 9 },
+        spring: { x: 5, y: 7 },
+        enemies: [
+          { x: 9, y: 1 },
+          { x: 3, y: 3 },
+          { x: 9, y: 5 },
+          { x: 3, y: 9 }
+        ]
+      },
+      {
+        map: [
+          "#############",
+          "#...........#",
+          "#.###.#.###.#",
+          "#...#.#.....#",
+          "###.#.#####.#",
+          "#...#.....#.#",
+          "#.#####.#.#.#",
+          "#.....#.#...#",
+          "#.###.#.###.#",
+          "#...........#",
+          "#############"
+        ],
+        player: { x: 1, y: 1 },
+        exit: { x: 11, y: 9 },
+        spring: { x: 6, y: 5 },
+        enemies: [
+          { x: 10, y: 1 },
+          { x: 3, y: 3 },
+          { x: 9, y: 5 },
+          { x: 3, y: 7 },
+          { x: 10, y: 9 }
+        ]
+      }
+    ];
+
+    const DIRECTIONS = {
+      up: { x: 0, y: -1 },
+      down: { x: 0, y: 1 },
+      left: { x: -1, y: 0 },
+      right: { x: 1, y: 0 }
+    };
+
+    const mapElement = document.getElementById("map");
+    const hpElement = document.getElementById("hp");
+    const turnElement = document.getElementById("turn");
+    const enemyCountElement = document.getElementById("enemyCount");
+    const floorNumberElement = document.getElementById("floorNumber");
+    const messageElement = document.getElementById("message");
+
+    let floorIndex;
+    let map;
+    let player;
+    let exit;
+    let spring;
+    let springUsed;
+    let enemies;
+    let hp;
+    let turn;
+    let gameOver;
+    let gameWon;
+
+    function loadFloor(index, showMessage = true) {
+      floorIndex = index;
+      const data = FLOORS[floorIndex];
+      map = data.map.map(row => row.split(""));
+      player = { ...data.player };
+      exit = { ...data.exit };
+      spring = { ...data.spring };
+      springUsed = false;
+      enemies = data.enemies.map(enemy => ({ ...enemy }));
+
+      if (showMessage) {
+        setMessage(`進入地下城第 ${floorIndex + 1} 層！小心，這層更危險了。`);
+      }
+      render();
+    }
+
+    function resetGame() {
+      hp = MAX_HP;
+      turn = 0;
+      gameOver = false;
+      gameWon = false;
+      loadFloor(0, false);
+      setMessage("冒險開始！找到出口 X，並善用治療泉水 H。");
+      render();
+    }
+
+    function setMessage(message) {
+      messageElement.textContent = message;
+    }
+
+    function isInside(x, y) {
+      return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT;
+    }
+
+    function isWall(x, y) {
+      return !isInside(x, y) || map[y][x] === "#";
+    }
+
+    function enemyAt(x, y) {
+      return enemies.findIndex(enemy => enemy.x === x && enemy.y === y);
+    }
+
+    function samePosition(a, b) {
+      return a.x === b.x && a.y === b.y;
+    }
+
+    function movePlayer(directionName) {
+      if (gameOver || gameWon) return;
+
+      const direction = DIRECTIONS[directionName];
+      if (!direction) return;
+
+      const nextX = player.x + direction.x;
+      const nextY = player.y + direction.y;
+
+      if (isWall(nextX, nextY)) {
+        setMessage("前方是牆壁！無法移動。");
+        return;
+      }
+
+      const enemyIndex = enemyAt(nextX, nextY);
+      if (enemyIndex !== -1) {
+        enemies.splice(enemyIndex, 1);
+        turn++;
+        setMessage("你擊退了一隻敵人！");
+        enemyTurn();
+        render();
+        return;
+      }
+
+      player.x = nextX;
+      player.y = nextY;
+      turn++;
+
+      // 治療泉水：將 HP 恢復至目前遊戲的上限，每層只能使用一次。
+      if (samePosition(player, spring) && !springUsed) {
+        springUsed = true;
+        const oldHP = hp;
+        hp = MAX_HP;
+        const recovered = hp - oldHP;
+        setMessage(
+          recovered > 0
+            ? `💧 你使用了治療泉水，恢復 ${recovered} 點 HP！生命值已補滿。`
+            : "💧 你使用了治療泉水！HP 已經全滿。"
+        );
+      }
+
+      // 出口會帶往下一層；第三層出口為最終勝利。
+      if (samePosition(player, exit)) {
+        if (floorIndex === FLOORS.length - 1) {
+          gameWon = true;
+          setMessage("🏆 恭喜！你突破了三層地下城，成功通關！");
+          render();
+          return;
+        }
+
+        const nextFloor = floorIndex + 1;
+        loadFloor(nextFloor, false);
+        turn++;
+        setMessage(`你抵達出口，進入第 ${floorIndex + 1} 層！敵人更多了。`);
+        render();
+        return;
+      }
+
+      enemyTurn();
+      render();
+    }
+
+    function enemyTurn() {
+      if (gameOver || gameWon) return;
+
+      // 第 1 層較慢，第 2、3 層敵人更積極。
+      const aggression = floorIndex;
+
+      for (let i = 0; i < enemies.length; i++) {
+        const enemy = enemies[i];
+        const distance = Math.abs(enemy.x - player.x) +
+                         Math.abs(enemy.y - player.y);
+
+        if (distance === 1) {
+          hp--;
+          if (hp <= 0) {
+            hp = 0;
+            gameOver = true;
+            setMessage("💀 生命值歸零！冒險失敗，請重新開始。");
+            return;
+          }
+          setMessage(`敵人攻擊了你！生命值減少（第 ${floorIndex + 1} 層）。`);
+          continue;
+        }
+
+        // 深層敵人會更積極追蹤玩家；仍然不能穿牆或重疊。
+        const candidates = [
+          { x: 0, y: -1 },
+          { x: 0, y: 1 },
+          { x: -1, y: 0 },
+          { x: 1, y: 0 }
+        ];
+
+        candidates.sort((a, b) => {
+          const distA = Math.abs(enemy.x + a.x - player.x) +
+                        Math.abs(enemy.y + a.y - player.y);
+          const distB = Math.abs(enemy.x + b.x - player.x) +
+                        Math.abs(enemy.y + b.y - player.y);
+          return (distA - distB) || ((Math.random() - 0.5) * aggression);
+        });
+
+        // 第 2 層起，敵人有機率多嘗試一個方向，但每回合最多移動一格。
+        const orderedCandidates = aggression > 0 && Math.random() < 0.25
+          ? candidates.slice().reverse()
+          : candidates;
+
+        for (const direction of orderedCandidates) {
+          const nx = enemy.x + direction.x;
+          const ny = enemy.y + direction.y;
+
+          if (isWall(nx, ny) ||
+              (nx === player.x && ny === player.y) ||
+              enemyAt(nx, ny) !== -1) {
+            continue;
+          }
+
+          enemy.x = nx;
+          enemy.y = ny;
+          break;
+        }
+      }
+
+      if (!gameOver && !gameWon && enemies.length === 0) {
+        setMessage("所有敵人都已被擊退！前往出口 X。");
+      }
+    }
+
+    function render() {
+      mapElement.innerHTML = "";
+
+      for (let y = 0; y < HEIGHT; y++) {
+        for (let x = 0; x < WIDTH; x++) {
+          const tile = document.createElement("div");
+          tile.classList.add("tile");
+
+          let symbol = "·";
+          let className = "floor";
+
+          if (map[y][x] === "#") {
+            symbol = "#";
+            className = "wall";
+          }
+
+          if (samePosition({ x, y }, exit)) {
+            symbol = "X";
+            className = "exit";
+          }
+
+          if (samePosition({ x, y }, spring) && !springUsed) {
+            symbol = "H";
+            className = "spring";
+          }
+
+          if (enemyAt(x, y) !== -1) {
+            symbol = "E";
+            className = "enemy";
+          }
+
+          if (player.x === x && player.y === y) {
+            symbol = "@";
+            className = "player";
+          }
+
+          tile.classList.add(className);
+          tile.textContent = symbol;
+          tile.setAttribute("aria-label", getTileDescription(symbol));
+          mapElement.appendChild(tile);
+        }
+      }
+
+      hpElement.textContent = "♥ ".repeat(hp) + "♡ ".repeat(MAX_HP - hp);
+      turnElement.textContent = String(turn);
+      enemyCountElement.textContent = String(enemies.length);
+      floorNumberElement.textContent = `${floorIndex + 1} / ${FLOORS.length}`;
+
+      if (gameWon) {
+        setMessage("🏆 恭喜！你突破了三層地下城，成功通關！");
+      } else if (gameOver) {
+        setMessage("💀 生命值歸零！冒險失敗，請重新開始。");
+      }
+    }
+
+    function getTileDescription(symbol) {
+      switch (symbol) {
+        case "@": return "玩家";
+        case "#": return "牆壁";
+        case "E": return "敵人";
+        case "X": return "出口／樓梯";
+        case "H": return "治療泉水";
+        default: return "地板";
+      }
+    }
+
+    document.addEventListener("keydown", event => {
+      const key = event.key.toLowerCase();
+      const keyMap = {
+        w: "up", arrowup: "up",
+        s: "down", arrowdown: "down",
+        a: "left", arrowleft: "left",
+        d: "right", arrowright: "right"
+      };
+      const direction = keyMap[key];
+      if (direction) {
+        event.preventDefault();
+        movePlayer(direction);
+      }
+    });
+
+    document.querySelectorAll("[data-dir]").forEach(button => {
+      button.addEventListener("click", () => movePlayer(button.dataset.dir));
+    });
+
+    document.getElementById("restart").addEventListener("click", resetGame);
+
+    resetGame();
+  </script>
+</body>
+</html>
